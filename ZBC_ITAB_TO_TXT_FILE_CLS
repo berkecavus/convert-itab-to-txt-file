@@ -1,0 +1,152 @@
+*&---------------------------------------------------------------------*
+*& Include          ZBC_ITAB_TO_TXT_FILE_CLS
+*&---------------------------------------------------------------------*
+
+CLASS LCL_MAIN DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      GET_DATA,
+      FUNCTION
+        FOR EVENT IF_SALV_EVENTS_FUNCTIONS~ADDED_FUNCTION
+        OF CL_SALV_EVENTS_TABLE,
+      DISPLAY.
+ENDCLASS.
+
+CLASS LCL_MAIN IMPLEMENTATION.
+
+  METHOD GET_DATA.
+
+    DATA(R_MSG) = CLOBJ->GET_DATA( ).
+    IF R_MSG IS NOT INITIAL.
+      MESSAGE R_MSG TYPE 'S' DISPLAY LIKE 'E'.
+    ENDIF.
+
+  ENDMETHOD.
+  METHOD DISPLAY.
+
+    TRY.
+        CL_SALV_TABLE=>FACTORY(
+          IMPORTING
+            R_SALV_TABLE   = DATA(GO_SALV)
+          CHANGING
+            T_TABLE        = CLOBJ->RECS[]
+        ).
+
+        DATA(DISPLAY) = GO_SALV->GET_DISPLAY_SETTINGS( ).
+        "Title
+        DISPLAY->SET_LIST_HEADER( VALUE = 'Convert itab to txt file' ).
+        "Zebra
+        DISPLAY->SET_STRIPED_PATTERN( VALUE = ABAP_TRUE ).
+
+        DATA(COLUMNS) = GO_SALV->GET_COLUMNS( ).
+        "Optimize
+        COLUMNS->SET_OPTIMIZE( VALUE = ABAP_TRUE ).
+
+        "Gui Status(GUI STATUS copied from SAPSALV program)
+        GO_SALV->SET_SCREEN_STATUS(
+          EXPORTING
+            REPORT        = SY-REPID
+            PFSTATUS      = 'STANDARD'
+            SET_FUNCTIONS = CL_SALV_TABLE=>C_FUNCTIONS_ALL
+        ).
+
+        "Display.
+        DATA(EVENTS) = GO_SALV->GET_EVENT( ).
+        SET HANDLER LCL_MAIN=>FUNCTION FOR EVENTS.
+        GO_SALV->DISPLAY( ).
+
+      CATCH CX_ROOT INTO DATA(LO_ROOT).
+
+    ENDTRY.
+
+
+  ENDMETHOD.
+  METHOD FUNCTION.
+
+    DATA: V_FILENAME TYPE STRING,
+          V_PATH     TYPE STRING,
+          V_FULLPATH TYPE STRING,
+          V_RESULT   TYPE I.
+    DATA: T_BINTAB TYPE SOLIX_TAB,
+          V_SIZE   TYPE I.
+
+    CASE SY-UCOMM.
+      WHEN '&CONVERT'.
+
+        CLOBJ->CONVERT_ITAB_TO_TXT(
+          RECEIVING
+            RV_XSTRING     = DATA(RV_XSTRING)
+        ).
+
+        IF RV_XSTRING IS NOT INITIAL.
+
+          "File download address
+          CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_SAVE_DIALOG
+            EXPORTING
+              WINDOW_TITLE      = 'File Directory'
+              DEFAULT_EXTENSION = 'TXT'  "--> File Type
+              INITIAL_DIRECTORY = 'D:\'
+            CHANGING
+              FILENAME          = V_FILENAME
+              PATH              = V_PATH
+              FULLPATH          = V_FULLPATH
+              USER_ACTION       = V_RESULT.
+
+          "Convert binary code
+          CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+            EXPORTING
+              BUFFER        = RV_XSTRING
+            IMPORTING
+              OUTPUT_LENGTH = V_SIZE
+            TABLES
+              BINARY_TAB    = T_BINTAB.
+
+          "Download
+          CALL METHOD CL_GUI_FRONTEND_SERVICES=>GUI_DOWNLOAD
+            EXPORTING
+              BIN_FILESIZE            = V_SIZE
+              FILENAME                = V_FULLPATH
+              FILETYPE                = 'BIN'
+            CHANGING
+              DATA_TAB                = T_BINTAB
+            EXCEPTIONS
+              FILE_WRITE_ERROR        = 1
+              NO_BATCH                = 2
+              GUI_REFUSE_FILETRANSFER = 3
+              INVALID_TYPE            = 4
+              NO_AUTHORITY            = 5
+              UNKNOWN_ERROR           = 6
+              HEADER_NOT_ALLOWED      = 7
+              SEPARATOR_NOT_ALLOWED   = 8
+              FILESIZE_NOT_ALLOWED    = 9
+              HEADER_TOO_LONG         = 10
+              DP_ERROR_CREATE         = 11
+              DP_ERROR_SEND           = 12
+              DP_ERROR_WRITE          = 13
+              UNKNOWN_DP_ERROR        = 14
+              ACCESS_DENIED           = 15
+              DP_OUT_OF_MEMORY        = 16
+              DISK_FULL               = 17
+              DP_TIMEOUT              = 18
+              FILE_NOT_FOUND          = 19
+              DATAPROVIDER_EXCEPTION  = 20
+              CONTROL_FLUSH_ERROR     = 21
+              NOT_SUPPORTED_BY_GUI    = 22
+              ERROR_NO_GUI            = 23
+              OTHERS                  = 24.
+          IF SY-SUBRC IS INITIAL.
+            MESSAGE |File conversion successful| TYPE 'S'.
+          ELSE.
+            MESSAGE |File save failed| TYPE 'S' DISPLAY LIKE 'E'.
+          ENDIF.
+
+        ELSE.
+          MESSAGE |Could not convert file to txt file|
+              TYPE 'S' DISPLAY LIKE 'E'.
+        ENDIF.
+
+
+    ENDCASE.
+
+  ENDMETHOD.
+ENDCLASS.
