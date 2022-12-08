@@ -1,0 +1,107 @@
+CLASS ZBC_CL_ITAB_TO_TXT_FILE DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+*"--> Internal Table
+    TYPES: BEGIN OF TY_RECS,
+             MATNR TYPE MARD-MATNR,
+             MAKTX TYPE MAKT-MAKTX,
+             WERKS TYPE MARD-WERKS,
+             NAME1 TYPE T001W-NAME1,
+             LGORT TYPE MARD-LGORT,
+             LGOBE TYPE T001L-LGOBE,
+             LABST TYPE MARD-LABST,
+           END OF TY_RECS.
+    DATA: RECS TYPE STANDARD TABLE OF TY_RECS.
+
+*"--> Get Data
+    METHODS GET_DATA
+      RETURNING VALUE(RV_MSG) TYPE CHAR60.
+
+*"--> Convert itab to txt file
+    METHODS CONVERT_ITAB_TO_TXT
+      RETURNING VALUE(RV_XSTRING) TYPE XSTRING.
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+
+ENDCLASS.
+
+
+
+CLASS ZBC_CL_ITAB_TO_TXT_FILE IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZBC_CL_ITAB_TO_TXT_FILE->CONVERT_ITAB_TO_TXT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_XSTRING                     TYPE        XSTRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CONVERT_ITAB_TO_TXT.
+
+    DATA(DATA) = REF #( RECS ).
+
+    TRY.
+        CL_SALV_TABLE=>FACTORY(
+        EXPORTING
+          LIST_DISPLAY = ABAP_FALSE
+        IMPORTING
+          R_SALV_TABLE = DATA(LO_SALV)
+        CHANGING
+          T_TABLE      = RECS[] ).
+
+        DATA(FCAT) = CL_SALV_CONTROLLER_METADATA=>GET_LVC_FIELDCATALOG(
+                       R_COLUMNS      = LO_SALV->GET_COLUMNS( )
+                       R_AGGREGATIONS = LO_SALV->GET_AGGREGATIONS( )
+                     ).
+      CATCH CX_SALV_MSG.
+        RETURN.
+    ENDTRY.
+
+
+    CL_SALV_BS_LEX=>EXPORT_FROM_RESULT_DATA_TABLE(
+      EXPORTING
+        IS_FORMAT                     = IF_SALV_BS_LEX_FORMAT=>MC_FORMAT_CSV
+        IR_RESULT_DATA_TABLE          = CL_SALV_EX_UTIL=>FACTORY_RESULT_DATA_TABLE(
+                                          R_DATA                 = DATA
+                                          T_FIELDCATALOG         = FCAT
+                                       )
+      IMPORTING
+        ER_RESULT_FILE                = RV_XSTRING
+    ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZBC_CL_ITAB_TO_TXT_FILE->GET_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_MSG                         TYPE        CHAR60
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_DATA.
+
+    SELECT MARD~MATNR,
+           MAKT~MAKTX,
+           MARD~WERKS,
+          T001W~NAME1,
+           MARD~LGORT,
+          T001L~LGOBE,
+           MARD~LABST UP TO 10 ROWS FROM MARD
+                INNER JOIN MAKT
+                    ON MAKT~MATNR  EQ MARD~MATNR
+                   AND MAKT~SPRAS  EQ @SY-LANGU
+                INNER JOIN T001W
+                    ON T001W~WERKS EQ MARD~WERKS
+                INNER JOIN T001L
+                    ON T001L~WERKS EQ MARD~WERKS
+                   AND T001L~LGORT EQ MARD~LGORT
+      INTO CORRESPONDING FIELDS OF TABLE @RECS.
+    IF SY-SUBRC IS NOT INITIAL.
+      RV_MSG = |No Records Found|.
+    ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.
