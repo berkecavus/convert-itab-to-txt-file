@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Report ZBC_ITAB_TO_TXT_FILE
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& ABAP  : BCAVUS
+*& DATE  : 12.08.2022
+*&---------------------------------------------------------------------*
+REPORT ZBC_ITAB_TO_TXT_FILE.
+
+DATA: CLOBJ TYPE REF TO ZBC_CL_ITAB_TO_TXT_FILE.
+
+INITIALIZATION.
+  CREATE OBJECT CLOBJ.
+
+  INCLUDE: ZBC_ITAB_TO_TXT_FILE_CLS.
+
+START-OF-SELECTION.
+
+  LCL_MAIN=>GET_DATA( ).
+
+END-OF-SELECTION.
+
+  IF CLOBJ->RECS[] IS NOT INITIAL.
+    LCL_MAIN=>DISPLAY( ).
+  ENDIF.
