@@ -49,10 +49,11 @@ CLASS LCL_MAIN IMPLEMENTATION.
             PFSTATUS      = 'STANDARD'
             SET_FUNCTIONS = CL_SALV_TABLE=>C_FUNCTIONS_ALL
         ).
-
-        "Display.
+       "EVENTS
         DATA(EVENTS) = GO_SALV->GET_EVENT( ).
         SET HANDLER LCL_MAIN=>FUNCTION FOR EVENTS.
+        
+       "Display.
         GO_SALV->DISPLAY( ).
 
       CATCH CX_ROOT INTO DATA(LO_ROOT).
