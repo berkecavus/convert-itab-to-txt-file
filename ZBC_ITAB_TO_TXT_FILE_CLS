@@ -42,7 +42,7 @@ CLASS LCL_MAIN IMPLEMENTATION.
         "Optimize
         COLUMNS->SET_OPTIMIZE( VALUE = ABAP_TRUE ).
 
-        "Gui Status(GUI STATUS copied from SAPSALV program)
+        "Gui Status(GUI STATUS copied from SAPLSALV program)
         GO_SALV->SET_SCREEN_STATUS(
           EXPORTING
             REPORT        = SY-REPID
